@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+env:
+  OBBATTU_UPLOAD_KEYSTORE_BASE64: ${{ secrets.OBBATTU_UPLOAD_KEYSTORE_BASE64 }}
+  OBBATTU_UPLOAD_STORE_PASSWORD: ${{ secrets.OBBATTU_UPLOAD_STORE_PASSWORD }}
+  OBBATTU_UPLOAD_KEY_ALIAS: ${{ secrets.OBBATTU_UPLOAD_KEY_ALIAS }}
+  OBBATTU_UPLOAD_KEY_PASSWORD: ${{ secrets.OBBATTU_UPLOAD_KEY_PASSWORD }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,16 +24,35 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 16 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
-      - name: Build installable debug APK
-        run: gradle --no-daemon -p android-app :app:assembleDebug
-      - name: Save APK as workflow artifact
+          gradle-version: '8.13'
+      - name: Prepare optional Play upload key
+        if: ${{ env.OBBATTU_UPLOAD_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$OBBATTU_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/obbattu-upload-key.jks"
+          echo "OBBATTU_UPLOAD_KEYSTORE_PATH=$RUNNER_TEMP/obbattu-upload-key.jks" >> "$GITHUB_ENV"
+      - name: Build installable debug APK and release app bundle
+        run: gradle --no-daemon -p android-app :app:assembleDebug :app:bundleRelease
+      - name: Identify release signing state
+        run: |
+          if [ -n "$OBBATTU_UPLOAD_KEYSTORE_BASE64" ]; then
+            echo "Built signed release AAB using the configured private upload key." | tee "$RUNNER_TEMP/release-signing-note.txt"
+          else
+            echo "Built an unsigned release AAB. Add the four OBBATTU_UPLOAD_* repository secrets to sign a Play upload bundle." | tee "$RUNNER_TEMP/release-signing-note.txt"
+          fi
+      - name: Save APK and AAB as workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: obbattu-android-debug-apk
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: obbattu-android-release-candidate
+          path: |
+            android-app/app/build/outputs/apk/debug/app-debug.apk
+            android-app/app/build/outputs/bundle/release/app-release.aab
+            ${{ runner.temp }}/release-signing-note.txt
           if-no-files-found: error
           retention-days: 14

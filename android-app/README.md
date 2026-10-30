@@ -1,25 +1,32 @@
 # Obbattu Android app
 
-A simple Android app for the live Obbattu sweets shop at **https://obbattu.in/**. It opens the mobile website in an Android WebView and uses the Obbattu logo as its launcher icon. The website remains the source of truth for products, cart, accounts, checkout, coupons, and order history.
+Android app for the live Obbattu sweets shop at **https://obbattu.in/**. The app opens the mobile store without a separate app toolbar, keeps Obbattu pages inside the app, and hands external payment/WhatsApp destinations to Android. The website remains the source of truth for products, cart, accounts, checkout, coupons, and orders.
 
-## Build an installable APK without Android Studio
+## Build artifacts on GitHub
 
-1. Create a GitHub repository and upload the contents of this folder (the `app`, `build.gradle`, `settings.gradle`, and `.github` entries should be at the repository root).
-2. Push the files to GitHub, or use **Actions → Build Obbattu Android app → Run workflow**.
-3. Open the completed workflow run and download the `obbattu-android-debug-apk` artifact.
-4. Extract it and install `app-debug.apk` on an Android phone. Android may ask you to allow installation from that source.
+The GitHub Actions workflow builds an installable debug APK and a release Android App Bundle (AAB) targeting Android 16 / API 36. It keeps the existing website branch untouched when built from the `android-app` branch.
 
-The workflow creates a **debug APK for testing**. It is not a Play Store release. For Play Store distribution, create a signed release Android App Bundle (AAB), keep the signing key private, and complete the Google Play Console app listing, testing, and policy forms.
+- The debug APK is for device testing only.
+- The release AAB is signed only after a private upload keystore is configured. Without the key secrets, the workflow produces an **unsigned AAB** that cannot be uploaded to Google Play.
 
-## Build in Android Studio
+To enable signed builds, add these repository secrets in GitHub under **Settings → Secrets and variables → Actions**:
 
-Open this folder as a project in Android Studio. Let it install the Android SDK platform 35 and Gradle 8.9 if prompted, then choose **Build → Build Bundle(s) / APK(s) → Build APK(s)**. The test APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+- `OBBATTU_UPLOAD_KEYSTORE_BASE64`: base64 text of your private `.jks` upload keystore
+- `OBBATTU_UPLOAD_STORE_PASSWORD`: keystore password
+- `OBBATTU_UPLOAD_KEY_ALIAS`: key alias
+- `OBBATTU_UPLOAD_KEY_PASSWORD`: key password
+
+Keep the keystore and passwords private, and retain a secure backup for future app updates. Never commit the keystore or passwords to this repository.
+
+## Local Android Studio build
+
+Open this folder as an Android Studio project. Install Android SDK Platform 36 and Build Tools 36.0.0 when prompted. Use Java 17 and Gradle 8.13. The app's package name is `in.obbattu.app`; its version is 1.0.1 (version code 2).
 
 ## Included behavior
 
-- Keeps shopping and account pages on `obbattu.in` or its subdomains inside the app.
-- Opens external destinations such as WhatsApp and payment apps through Android's normal link handling.
-- Supports JavaScript, cookies, saved web storage, Android back navigation, and payment-proof file selection.
-- Requires HTTPS and blocks cleartext network traffic.
+- Obbattu domain and subdomains remain in the app over HTTPS; other destinations open in Android.
+- Supports JavaScript and first-party cookies needed by the website, payment-proof file selection, Android back navigation, and a retry page after connection errors.
+- Blocks cleartext traffic and mixed content.
+- Applies Android 15+ system bar insets so the store content does not overlap status/navigation controls.
 
-Before release, verify login, order checkout, payment-proof uploads, WhatsApp links, and Android back navigation on real devices. This wrapper does not add native push notifications or offline shopping.
+Before Play submission, configure the upload key, test the release build on real devices, and complete Play Console's app content, privacy, store listing, testing, and policy requirements. A website wrapper's Play approval is not guaranteed; Google Play expects an app to offer meaningful functionality and a good user experience.
